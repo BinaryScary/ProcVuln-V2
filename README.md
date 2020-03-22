@@ -11,7 +11,7 @@ ProcVuln parses sysinternals Procmon (XML) output to find filesystem vulnerabili
 "$Name" : {...} # Context entry, will not be shown in findings and can be used as Context property  
 
 ### Example JSON indicators file
-finding DLL hijacks:
+finding DLL hijack vulnerabilities:
 ```
 {
    "$badPath":{
