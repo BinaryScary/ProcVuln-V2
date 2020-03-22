@@ -17,7 +17,8 @@ using System.Xml;
 // Custom Entry Properties:
 // "Privileged" : "True" # Process has integrity High or System
 // "PathWritable" : "True" # Path is writable by current user
-// "Context" : "" # used so entries can reference others, TBD how to implement
+// "Context" : "" # used so entries can reference others
+// "Equals" : "Path" # a context property, if current entry and context entry share the same property this will be True
 // "$Name" : {...} # Context entry, will not be shown in findings and can be used as Context property
 
 namespace ProcVuln_V2
@@ -355,7 +356,7 @@ namespace ProcVuln_V2
             run.Parser();
             run.PrintFindings();
 
-            Console.WriteLine("Done");
+            //Console.WriteLine("Done");
             Console.ReadKey(); // just for degbugging
         }
     }
