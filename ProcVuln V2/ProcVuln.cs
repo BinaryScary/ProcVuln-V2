@@ -150,13 +150,13 @@ namespace ProcVuln_V2
             {
                 acl = di.GetAccessControl(AccessControlSections.All);
             }
-            catch(DirectoryNotFoundException e)
+            catch(DirectoryNotFoundException)
             {
                 DirectoryInfo parentPath = di.Parent;
                 if(parentPath == null) { return false; }
                 return checkWritable(parentPath.FullName);
             }
-            catch(UnauthorizedAccessException e)
+            catch(UnauthorizedAccessException)
             {
                 return false;
             }
