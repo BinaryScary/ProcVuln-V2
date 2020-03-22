@@ -160,6 +160,11 @@ namespace ProcVuln_V2
             {
                 return false;
             }
+            catch
+            {
+                // TODO: remote file checks (error 53)
+                return false;
+            }
             //catch(PrivilegeNotHeldException e)
             //{
             //    Console.WriteLine("[!] Needs Administrator Privilege to run.");
@@ -350,6 +355,7 @@ namespace ProcVuln_V2
             run.Parser();
             run.PrintFindings();
 
+            Console.WriteLine("Done");
             Console.ReadKey(); // just for degbugging
         }
     }
