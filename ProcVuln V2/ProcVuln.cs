@@ -1,4 +1,5 @@
 ﻿using Newtonsoft.Json.Linq;
+// Needs nuget system.linq
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -149,12 +150,22 @@ namespace ProcVuln_V2
             {
                 acl = di.GetAccessControl(AccessControlSections.All);
             }
-            catch
+            catch(DirectoryNotFoundException e)
             {
-                bool temp = false;
-                temp = checkWritable(di.Parent.FullName);
-                return temp;
+                DirectoryInfo parentPath = di.Parent;
+                if(parentPath == null) { return false; }
+                return checkWritable(parentPath.FullName);
             }
+            catch(UnauthorizedAccessException e)
+            {
+                return false;
+            }
+            //catch(PrivilegeNotHeldException e)
+            //{
+            //    Console.WriteLine("[!] Needs Administrator Privilege to run.");
+            //    System.Environment.Exit(1);
+            //}
+
             AuthorizationRuleCollection rules = acl.GetAccessRules(true, true, typeof(NTAccount));
 
             //Go through the rules returned from the DirectorySecurity
