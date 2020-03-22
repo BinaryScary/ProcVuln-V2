@@ -3,6 +3,8 @@ C# rewrite of ProcVuln, supports JSON entries and does not cache file before par
 
 ProcVuln parses sysinternals Procmon (XML) output to find filesystem vulnerabilities using user created JSON files.
 
+Usage: `ProcVuln-V2.exe Procmon.xml Indicators.json [domain/user]`
+
 ### Custom Entry Properties:
 "Privileged" : "True" # Process has integrity High or System  
 "PathWritable" : "True" # Path is writable by current user  
