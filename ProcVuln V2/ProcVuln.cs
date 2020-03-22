@@ -9,6 +9,7 @@ using System.Xml;
 
 // TODO: context entry
 // TODO: blacklist functionality
+// TODO: error handling, file doesn't exists, ect
 
 // Custom Entry Properties:
 // "Privileged" : "True" # Process has integrity High or System
@@ -23,14 +24,15 @@ namespace ProcVuln_V2
         string logPath;
         string indicatorPath;
         HashSet<string> privProcs; // best dataset for contains reference
-        Dictionary<string, Dictionary<string, string>> indicators; // holds entries from JSON file
+        //Dictionary<string, Dictionary<string, string>> indicators; // holds entries from JSON file
+        JObject indicators;
         List<Tuple<string, Dictionary<string, string>>> findings; // holds all possible findings with event
 
         ProcVuln(string lPath, string iPath)
         {
             logPath = lPath;
             indicatorPath = iPath;
-            indicators = new Dictionary<string, Dictionary<string, string>>();
+            //indicators = new Dictionary<string, Dictionary<string, string>>();
             findings = new List<Tuple<string, Dictionary<string, string>>>();
         }
 
@@ -96,29 +98,38 @@ namespace ProcVuln_V2
             return dict;
         }
 
-        // generate dictionary of dictionaries from JSON (faster then dealing with JObjects)
-        void genIndicatorDicts()
+        // generate JObjects from JSON
+        void genIndicators()
         {
             // parse JSON file to JObject
             string jsonString = File.ReadAllText(indicatorPath);
-            JObject jsonEntries = JObject.Parse(jsonString); 
-
-            // init global indicator dict of dict
-            Dictionary<string, string> entryRef;
-
-            // iterate over JObject
-            foreach(JProperty entry in (JToken)jsonEntries)
-            {
-                entryRef = new Dictionary<string, string>();
-                foreach(JProperty prop in ((JObject)entry.Value).Properties())
-                {
-                    entryRef.Add(prop.Name, prop.Value.ToString());
-                    //Console.WriteLine(entry.Name + " - " + prop.Name + " - " + prop.Value);
-                }
-                indicators.Add(entry.Name, entryRef);
-            }
-
+            indicators = JObject.Parse(jsonString); 
         }
+
+        // [Depricated] possibly implement again to deal with context entries
+        // generate nested dictionaries from JSON (faster then dealing with JObjects)
+        //void genIndicatorDicts()
+        //{
+        //    // parse JSON file to JObject
+        //    string jsonString = File.ReadAllText(indicatorPath);
+        //    JObject jsonEntries = JObject.Parse(jsonString); 
+
+        //    // init global indicator dict of dict
+        //    Dictionary<string, string> entryRef;
+
+        //    // iterate over JObject
+        //    foreach(JProperty entry in (JToken)jsonEntries)
+        //    {
+        //        entryRef = new Dictionary<string, string>();
+        //        foreach(JProperty prop in ((JObject)entry.Value).Properties())
+        //        {
+        //            entryRef.Add(prop.Name, prop.Value.ToString());
+        //            //Console.WriteLine(entry.Name + " - " + prop.Name + " - " + prop.Value);
+        //        }
+        //        indicators.Add(entry.Name, entryRef);
+        //    }
+
+        //}
 
         // maybe just use the C function I wrote for this?
         // TODO: Writable dir / file
@@ -144,6 +155,31 @@ namespace ProcVuln_V2
             return true; // placeholder
         }
 
+        Boolean checkContext(JObject props, Dictionary<string,string> eventDict)
+        {
+            // check if entry exists and if that entry has a property that is equal
+            JToken equal = props["equal"];
+            if (equal != null)
+            {
+                string equals = equal.ToString();
+                if (!findings.Any(m => m.Item1 == props["entry"].ToString() && m.Item2[equals] == eventDict[equals]))
+                {
+                    return false;
+                }
+            }
+            else
+            {
+                if (!findings.Any(m => m.Item1 == props["entry"].ToString()))
+                {
+                    return false;
+                }
+            }
+            //foreach(JProperty prop in ((JObject)context.Value).Properties())
+            //{
+            //}
+            return true;
+        }
+
         void checkEvent(Dictionary<string,string> eventDict)
         {
             Boolean privileged = privProcs.Contains(eventDict["Process_Name"]);
@@ -152,15 +188,15 @@ namespace ProcVuln_V2
             Boolean addEntry;
             string buff;
 
-            foreach(KeyValuePair<string,Dictionary<string,string>> entry in indicators)
+            foreach(JProperty entry in (JToken)indicators)
             {
                 // TODO: refactor second loop into seperate function
                 addEntry = true;
-                foreach(KeyValuePair<string,string> prop in entry.Value)
+                foreach(JProperty prop in ((JObject)entry.Value).Properties())
                 {
                     // check for if event was under privileged process or not (High, System)
-                    if (prop.Key == "Privileged") {
-                        if(prop.Value == privileged.ToString()) {
+                    if (prop.Name == "Privileged") {
+                        if(prop.Value.ToString() == privileged.ToString()) {
                             continue;
                         }
                         else {
@@ -170,8 +206,8 @@ namespace ProcVuln_V2
                     }
 
                     // check if path dir/file is writable
-                    if (prop.Key == "PathWritable") {
-                        if(prop.Value == writablePath.ToString()) {
+                    if (prop.Name == "PathWritable") {
+                        if(prop.Value.ToString() == writablePath.ToString()) {
                             continue;
                         }
                         else {
@@ -181,15 +217,23 @@ namespace ProcVuln_V2
                     }
 
                     // TODO: add context entry with distinguishers i.e: entry2 + path is the same
-                    if (prop.Key == "Context")
+                    if (prop.Name == "Context")
                     {
-                        
+                        if (checkContext((JObject)prop.Value, eventDict))
+                        {
+                            continue;
+                        }
+                        else
+                        {
+                            addEntry = false;
+                            break;
+                        }
                     }
 
                     // more efficient than exception or containskey
-                    if (eventDict.TryGetValue(prop.Key, out buff)) {
+                    if (eventDict.TryGetValue(prop.Name, out buff)) {
                         // entry key was in event dictionary
-                        if(prop.Value == buff) {
+                        if(prop.Value.ToString() == buff) {
                             continue;
                         }
                         else {
@@ -207,7 +251,7 @@ namespace ProcVuln_V2
                 if(addEntry == true)
                 {
                     //Console.WriteLine(entry.Key);
-                    findings.Add(new Tuple<string, Dictionary<string, string>>(entry.Key,eventDict)); // TODO: Add function which checks for same enteries and ignores Time_of_Day?
+                    findings.Add(new Tuple<string, Dictionary<string, string>>(entry.Name,eventDict)); // TODO: Add function which checks for same enteries and ignores Time_of_Day?
                 }
 
             }
@@ -215,7 +259,8 @@ namespace ProcVuln_V2
 
         void Parser()
         {
-            genIndicatorDicts();
+            //genIndicatorDicts();
+            genIndicators();
 
             // create XmlReader, Ignore whitespace
             // XMLReader performance: https://web.archive.org/web/20130517114458/http://www.nearinfinity.com/blogs/joe_ferner/performance_linq_to_sql_vs.html
@@ -253,7 +298,7 @@ namespace ProcVuln_V2
                 if (find.Item1.StartsWith("$")) { continue; }
 
                 // https://stackoverflow.com/a/3871782/11567632 
-                Console.WriteLine(find.Item1 + " : " + string.Join(";", find.Item2.Select(x => x.Key + "=" + x.Value).ToArray()));
+                Console.WriteLine(find.Item1 + ":\n" + string.Join(";", find.Item2.Select(x => x.Key + "=" + x.Value).ToArray()) +"\n");
                 // TODO: better print format
             }
         }
