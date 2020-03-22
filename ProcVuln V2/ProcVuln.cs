@@ -3,13 +3,15 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Security.AccessControl;
+using System.Security.Principal;
 using System.Text;
 using System.Threading.Tasks;
 using System.Xml;
 
-// TODO: context entry
+// TODO: dynamic context entry (Not just equals)
 // TODO: blacklist functionality
-// TODO: error handling, file doesn't exists, ect
+// TODO: error handling for file doesn't exists, ect
 
 // Custom Entry Properties:
 // "Privileged" : "True" # Process has integrity High or System
@@ -23,15 +25,21 @@ namespace ProcVuln_V2
     {
         string logPath;
         string indicatorPath;
+        string NtAccountName;
         HashSet<string> privProcs; // best dataset for contains reference
         //Dictionary<string, Dictionary<string, string>> indicators; // holds entries from JSON file
         JObject indicators;
         List<Tuple<string, Dictionary<string, string>>> findings; // holds all possible findings with event
 
-        ProcVuln(string lPath, string iPath)
+        ProcVuln(string lPath, string iPath, string user = null)
         {
             logPath = lPath;
             indicatorPath = iPath;
+            if (user == null) {
+                // TODO: Implement get current user
+                NtAccountName = @"windev2001eval\user";
+            }
+            else { NtAccountName = user; }
             //indicators = new Dictionary<string, Dictionary<string, string>>();
             findings = new List<Tuple<string, Dictionary<string, string>>>();
         }
@@ -68,14 +76,7 @@ namespace ProcVuln_V2
             } while (node.ReadToNextSibling("process"));
         }
 
-        //reader.Read(); // next element in line
-        //reader.ReadStartElement(); // reads to first start element (without '/')
-        //reader.ReadToDescendant("process"); // read to next child node with name
-        //reader.ReadToFollowing("process"); // read to next node with name
-        //reader.ReadToNextSibling("process"); // read to next sibling node with name
-        //reader.ReadElementContentAsString(); // reads content moves pass end tag & stops at next element
-        //XmlReader test = reader.ReadSubtree(); // reads & copies child nodes to seperate reader
-        //test.Close() // close reader
+        // XmlReader (PAY ATTENTION TO READER RETURN POSITION): https://docs.microsoft.com/en-us/dotnet/api/system.xml.xmlreader?view=netframework-4.8#methods
         // helper: deserializes child nodes properties into dictionary
         Dictionary<string,string> deserializeSubtreeEvent(XmlReader reader)
         {
@@ -131,31 +132,57 @@ namespace ProcVuln_V2
 
         //}
 
+        // TODO: doesn't check group or ownership and needs admin rights to run
         // maybe just use the C function I wrote for this?
-        // TODO: Writable dir / file
-            // TODO: cache the writable dirs/files?
-        Boolean checkWritable(string path)
+        bool checkWritable(string path)
         {
             // does not have path property
             if(path == "") {
                 return false;
             }
 
-            // TODO: check if file exists, if it doesn't check if diretory exists or is writable
-            // directory writable check
-            //try
-            //{
-            //    System.Security.AccessControl.DirectorySecurity ds = Directory.GetAccessControl(path);
-            //    return true;
-            //}
-            //catch (UnauthorizedAccessException)
-            //{
-            //    return false;
-            //}
-            return true; // placeholder
+            // https://stackoverflow.com/a/5394719/11567632
+            DirectoryInfo di = new DirectoryInfo(path);
+            // TODO: handle file not found (DirectoryNotFoundException)
+            DirectorySecurity acl = null;
+            try
+            {
+                acl = di.GetAccessControl(AccessControlSections.All);
+            }
+            catch
+            {
+                bool temp = false;
+                temp = checkWritable(di.Parent.FullName);
+                return temp;
+            }
+            AuthorizationRuleCollection rules = acl.GetAccessRules(true, true, typeof(NTAccount));
+
+            //Go through the rules returned from the DirectorySecurity
+            foreach (AuthorizationRule rule in rules)
+            {
+                //If we find one that matches the identity we are looking for
+                if (rule.IdentityReference.Value.Equals(NtAccountName,StringComparison.CurrentCultureIgnoreCase))
+                {
+                    var filesystemAccessRule = (FileSystemAccessRule)rule;
+
+                    //Cast to a FileSystemAccessRule to check for access rights
+                    if ((filesystemAccessRule.FileSystemRights & FileSystemRights.WriteData)>0 && filesystemAccessRule.AccessControlType != AccessControlType.Deny)
+                    {
+                        return true;
+                    }
+                    else
+                    {
+                        return false;
+                    }
+                }
+            }
+
+            return false;
         }
 
-        Boolean checkContext(JObject props, Dictionary<string,string> eventDict)
+        // checks context entry
+        // JToken vs JObject: https://adevelopersnotes.wordpress.com/2013/11/13/json-net-jtoken-vs-jproperty-vs-jobject/
+        bool checkContext(JObject props, Dictionary<string,string> eventDict)
         {
             // check if entry exists and if that entry has a property that is equal
             JToken equal = props["equal"];
@@ -182,10 +209,10 @@ namespace ProcVuln_V2
 
         void checkEvent(Dictionary<string,string> eventDict)
         {
-            Boolean privileged = privProcs.Contains(eventDict["Process_Name"]);
-            Boolean writablePath = checkWritable(eventDict["Path"]); // TODO: check if dir/path is writable
+            bool privileged;
+            bool writablePath; 
 
-            Boolean addEntry;
+            bool addEntry;
             string buff;
 
             foreach(JProperty entry in (JToken)indicators)
@@ -196,6 +223,7 @@ namespace ProcVuln_V2
                 {
                     // check for if event was under privileged process or not (High, System)
                     if (prop.Name == "Privileged") {
+                        privileged = privProcs.Contains(eventDict["Process_Name"]); // run check only if entry exists
                         if(prop.Value.ToString() == privileged.ToString()) {
                             continue;
                         }
@@ -207,6 +235,7 @@ namespace ProcVuln_V2
 
                     // check if path dir/file is writable
                     if (prop.Name == "PathWritable") {
+                        writablePath = checkWritable(eventDict["Path"]); // run check only if entry exists
                         if(prop.Value.ToString() == writablePath.ToString()) {
                             continue;
                         }
@@ -216,7 +245,6 @@ namespace ProcVuln_V2
                         }
                     }
 
-                    // TODO: add context entry with distinguishers i.e: entry2 + path is the same
                     if (prop.Name == "Context")
                     {
                         if (checkContext((JObject)prop.Value, eventDict))
@@ -250,8 +278,8 @@ namespace ProcVuln_V2
 
                 if(addEntry == true)
                 {
-                    //Console.WriteLine(entry.Key);
-                    findings.Add(new Tuple<string, Dictionary<string, string>>(entry.Name,eventDict)); // TODO: Add function which checks for same enteries and ignores Time_of_Day?
+                    // TODO: Add function which checks for same enteries and ignores Time_of_Day?
+                    findings.Add(new Tuple<string, Dictionary<string, string>>(entry.Name,eventDict)); 
                 }
 
             }
@@ -306,7 +334,8 @@ namespace ProcVuln_V2
         // Usage: ProcVuln [Log.xml path]
         static void Main(string[] args)
         {
-            ProcVuln run = new ProcVuln(args[0], args[1]);
+            // use a JSON formater for JSON file
+            ProcVuln run = new ProcVuln(args[0], args[1], args[2]);
             run.Parser();
             run.PrintFindings();
 
