@@ -145,7 +145,6 @@ namespace ProcVuln_V2
 
             // https://stackoverflow.com/a/5394719/11567632
             DirectoryInfo di = new DirectoryInfo(path);
-            // TODO: handle file not found (DirectoryNotFoundException)
             DirectorySecurity acl = null;
             try
             {
