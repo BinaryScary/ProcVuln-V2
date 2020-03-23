@@ -34,13 +34,24 @@ finding DLL hijack vulnerabilities:
 ### Results
 ```
 dllhijack:
-ProcessIndex=776;Time_of_Day=6:30:45.1776068 AM;Process_Name=***;PID=4756;Operation=Load Image;Path=***;Result=SUCCESS;Detail=Image Base: 0x7ffe93760000, Image Size: 0x285000
+        ProcessIndex=390
+        Time_of_Day=6:28:00.5791200 AM
+        Process_Name=***
+        PID=3396
+        Operation=ReadFile
+        Path=***
+        Result=SUCCESS
+        Detail=Offset: 143,360, Length: 32,768, I/O Flags: Non-cached, Paging I/O, Synchronous Paging I/O, Priority: Normal
 
 dllhijack:
-ProcessIndex=776;Time_of_Day=6:30:45.1804342 AM;Process_Name=***;PID=4756;Operation=Load Image;Path=***;Result=SUCCESS;Detail=Image Base: 0x7ffe92a10000, Image Size: 0x7000
-
-dllhijack:
-ProcessIndex=776;Time_of_Day=6:30:45.3085485 AM;Process_Name=***;PID=4756;Operation=Load Image;Path=***;Result=SUCCESS;Detail=Image Base: 0x52270000, Image Size: 0x398000
+        ProcessIndex=390
+        Time_of_Day=6:28:00.5813608 AM
+        Process_Name=***
+        PID=3396
+        Operation=ReadFile
+        Path=***
+        Result=SUCCESS
+        Detail=Offset: 49,152, Length: 32,768, I/O Flags: Non-cached, Paging I/O, Synchronous Paging I/O, Priority: Normal
 
 ...
 ```
