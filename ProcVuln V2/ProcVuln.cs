@@ -279,7 +279,7 @@ namespace ProcVuln_V2
                     // more efficient than exception or containskey
                     if (eventDict.TryGetValue(prop.Name, out buff)) {
                         // entry key was in event dictionary
-                        if(prop.Value.ToString() == buff) {
+                        if(buff.Contains(prop.Value.ToString())) {
                             continue;
                         }
                         else {
@@ -358,7 +358,7 @@ namespace ProcVuln_V2
             // use a JSON formater for JSON file
             ProcVuln run = new ProcVuln(args[0], args[1], args[2]);
             run.Parser();
-            run.PrintFindings();
+            run.PrintFindings(); // maybe print findings as they happen?
 
             //Console.WriteLine("Done");
             Console.ReadKey(); // just for degbugging
