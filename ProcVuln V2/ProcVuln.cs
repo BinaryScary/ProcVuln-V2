@@ -234,7 +234,6 @@ namespace ProcVuln_V2
 
             foreach(JProperty entry in (JToken)indicators)
             {
-                // TODO: refactor second loop into seperate function
                 addEntry = true;
                 foreach(JProperty prop in ((JObject)entry.Value).Properties())
                 {
@@ -357,7 +356,6 @@ namespace ProcVuln_V2
 
                 // https://stackoverflow.com/a/3871782/11567632 
                 Console.WriteLine(find.Item1 + ":\n\t" + string.Join("\n\t", find.Item2.Select(x => x.Key + "=" + x.Value).ToArray()) +"\n");
-                // TODO: better print format
             }
         }
         // 64bit writeCheck dll, uses win32 accesscheck with user security descriptor
