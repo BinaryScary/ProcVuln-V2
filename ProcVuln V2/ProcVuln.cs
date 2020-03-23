@@ -294,13 +294,25 @@ namespace ProcVuln_V2
                     }
                 }
 
-                if(addEntry == true)
+                if (addEntry == true)
                 {
-                    // TODO: Add function which checks for same enteries and ignores Time_of_Day?
-                    findings.Add(new Tuple<string, Dictionary<string, string>>(entry.Name,eventDict)); 
+                    Tuple<string, Dictionary<string, string>> tempEntry = new Tuple<string, Dictionary<string, string>>(entry.Name, eventDict);
+                    if (!duplicateCheck(tempEntry)) { 
+                    findings.Add(new Tuple<string, Dictionary<string, string>>(entry.Name, eventDict));
+                    }
                 }
 
             }
+        }
+
+        bool duplicateCheck(Tuple<string, Dictionary<string, string>> entry)
+        {
+            if (findings.Any(m => m.Item1 == entry.Item1 && m.Item2["Path"] == entry.Item2["Path"] && m.Item2["PID"] == entry.Item2["PID"] ))
+            {
+                return true;
+            }
+
+            return false;
         }
 
         void Parser()
