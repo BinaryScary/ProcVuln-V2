@@ -344,7 +344,7 @@ namespace ProcVuln_V2
                 if (find.Item1.StartsWith("$")) { continue; }
 
                 // https://stackoverflow.com/a/3871782/11567632 
-                Console.WriteLine(find.Item1 + ":\n" + string.Join(";", find.Item2.Select(x => x.Key + "=" + x.Value).ToArray()) +"\n");
+                Console.WriteLine(find.Item1 + ":\n\t" + string.Join("\n\t", find.Item2.Select(x => x.Key + "=" + x.Value).ToArray()) +"\n");
                 // TODO: better print format
             }
         }
@@ -352,16 +352,16 @@ namespace ProcVuln_V2
         [DllImport("WriteCheckDLL.dll", CallingConvention = CallingConvention.Cdecl)] // dll needs to be in output dir
         static extern int writeCheck([MarshalAs(UnmanagedType.LPStr)] string path);
 
-        // Usage: ProcVuln [Log.xml path]
+        // Usage: ProcVuln [Log.xml path] [indicators.json]
         static void Main(string[] args)
         {
             // use a JSON formater for JSON file
-            ProcVuln run = new ProcVuln(args[0], args[1], args[2]);
+            ProcVuln run = new ProcVuln(args[0], args[1]);
             run.Parser();
             run.PrintFindings(); // maybe print findings as they happen?
 
             //Console.WriteLine("Done");
-            Console.ReadKey(); // just for degbugging
+            //Console.ReadKey(); // just for degbugging
         }
     }
 }
