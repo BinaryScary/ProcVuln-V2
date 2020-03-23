@@ -1,9 +1,10 @@
-﻿using Newtonsoft.Json.Linq;
+using Newtonsoft.Json.Linq;
 // Needs nuget system.linq
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Security.AccessControl;
 using System.Security.Principal;
 using System.Text;
@@ -136,65 +137,65 @@ namespace ProcVuln_V2
 
         // TODO: doesn't check group or ownership and needs admin rights to run
         // maybe just use the C function I wrote for this?
-        bool checkWritable(string path)
-        {
-            // does not have path property
-            if(path == "") {
-                return false;
-            }
+        //bool checkWritable(string path)
+        //{
+        //    // does not have path property
+        //    if(path == "") {
+        //        return false;
+        //    }
 
-            // https://stackoverflow.com/a/5394719/11567632
-            DirectoryInfo di = new DirectoryInfo(path);
-            DirectorySecurity acl = null;
-            try
-            {
-                acl = di.GetAccessControl(AccessControlSections.All);
-            }
-            catch(DirectoryNotFoundException)
-            {
-                DirectoryInfo parentPath = di.Parent;
-                if(parentPath == null) { return false; }
-                return checkWritable(parentPath.FullName);
-            }
-            catch(UnauthorizedAccessException)
-            {
-                return false;
-            }
-            catch
-            {
-                // TODO: remote file checks (error 53)
-                return false;
-            }
-            //catch(PrivilegeNotHeldException e)
-            //{
-            //    Console.WriteLine("[!] Needs Administrator Privilege to run.");
-            //    System.Environment.Exit(1);
-            //}
+        //    // https://stackoverflow.com/a/5394719/11567632
+        //    DirectoryInfo di = new DirectoryInfo(path);
+        //    DirectorySecurity acl = null;
+        //    try
+        //    {
+        //        acl = di.GetAccessControl(AccessControlSections.All);
+        //    }
+        //    catch(DirectoryNotFoundException)
+        //    {
+        //        DirectoryInfo parentPath = di.Parent;
+        //        if(parentPath == null) { return false; }
+        //        return checkWritable(parentPath.FullName);
+        //    }
+        //    catch(UnauthorizedAccessException)
+        //    {
+        //        return false;
+        //    }
+        //    catch
+        //    {
+        //        // TODO: remote file checks (error 53)
+        //        return false;
+        //    }
+        //    //catch(PrivilegeNotHeldException e)
+        //    //{
+        //    //    Console.WriteLine("[!] Needs Administrator Privilege to run.");
+        //    //    System.Environment.Exit(1);
+        //    //}
 
-            AuthorizationRuleCollection rules = acl.GetAccessRules(true, true, typeof(NTAccount));
+        //    AuthorizationRuleCollection rules = acl.GetAccessRules(true, true, typeof(NTAccount));
 
-            //Go through the rules returned from the DirectorySecurity
-            foreach (AuthorizationRule rule in rules)
-            {
-                //If we find one that matches the identity we are looking for
-                if (rule.IdentityReference.Value.Equals(NtAccountName,StringComparison.CurrentCultureIgnoreCase))
-                {
-                    var filesystemAccessRule = (FileSystemAccessRule)rule;
+        //    //Go through the rules returned from the DirectorySecurity
+        //    foreach (AuthorizationRule rule in rules)
+        //    {
+        //        //If we find one that matches the identity we are looking for
+        //        if (rule.IdentityReference.Value.Equals(NtAccountName,StringComparison.CurrentCultureIgnoreCase))
+        //        {
+        //            var filesystemAccessRule = (FileSystemAccessRule)rule;
 
-                    //Cast to a FileSystemAccessRule to check for access rights
-                    if ((filesystemAccessRule.FileSystemRights & FileSystemRights.WriteData)>0 && filesystemAccessRule.AccessControlType != AccessControlType.Deny)
-                    {
-                        return true;
-                    }
-                    else
-                    {
-                        return false;
-                    }
-                }
-            }
+        //            //Cast to a FileSystemAccessRule to check for access rights
+        //            if ((filesystemAccessRule.FileSystemRights & FileSystemRights.WriteData)>0 && filesystemAccessRule.AccessControlType != AccessControlType.Deny)
+        //            {
+        //                return true;
+        //            }
+        //            else
+        //            {
+        //                return false;
+        //            }
+        //        }
+        //    }
 
-            return false;
-        }
+        //    return false;
+        //}
 
         // checks context entry
         // JToken vs JObject: https://adevelopersnotes.wordpress.com/2013/11/13/json-net-jtoken-vs-jproperty-vs-jobject/
@@ -251,8 +252,9 @@ namespace ProcVuln_V2
 
                     // check if path dir/file is writable
                     if (prop.Name == "PathWritable") {
-                        writablePath = checkWritable(eventDict["Path"]); // run check only if entry exists
-                        if(prop.Value.ToString() == writablePath.ToString()) {
+                        writablePath = Convert.ToBoolean(writeCheck(eventDict["Path"])); // run check only if entry exists
+                        //Console.WriteLine(eventDict["Path"] + " : " + writablePath);
+                        if (prop.Value.ToString() == writablePath.ToString()) {
                             continue;
                         }
                         else {
@@ -346,6 +348,9 @@ namespace ProcVuln_V2
                 // TODO: better print format
             }
         }
+        // 64bit writeCheck dll, uses win32 accesscheck with user security descriptor
+        [DllImport("WriteCheckDLL.dll", CallingConvention = CallingConvention.Cdecl)] // dll needs to be in output dir
+        static extern int writeCheck([MarshalAs(UnmanagedType.LPStr)] string path);
 
         // Usage: ProcVuln [Log.xml path]
         static void Main(string[] args)
